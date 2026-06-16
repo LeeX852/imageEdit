@@ -1,0 +1,20 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Python, Electron/Tauri (客户端), React/Vue (前端UI)
+  图像处理: OpenCV, rembg, Pillow
+  深度学习抠图模型: U²-Net, SAM, RMBG
+  目标: 构建一个桌面客户端工具，用于批量处理游戏素材图片(抠图、去背景、格式转换等)
+  平台: Windows 11
+  语言偏好: 中文文档，英文代码
+
+rules:
+  proposal:
+    - 简洁明了，包含非目标(Non-goals)
+    - 明确技术选型理由
+  design:
+    - 包含架构图描述
+    - 说明客户端与后端处理的职责划分
+  tasks:
+    - 每个任务控制在2小时以内
+    - 按依赖顺序排列

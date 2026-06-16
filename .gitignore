@@ -1,0 +1,41 @@
+node_modules/
+dist/
+release/
+build/
+build-tmp/
+*.log
+.env
+.DS_Store
+Thumbs.db
+
+# Claude Code / OMC
+.claude/
+.omc/
+app/.omc/
+app/backend/.omc/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+backend/build/
+backend/dist/
+backend/build/
+backend/*.spec
+
+# Electron
+app/release/
+app/build-tmp/
+
+# IDE
+.vscode/
+.idea/
+
+# OpenSpec artifacts (keep change plans, ignore build)
+openspec/changes/archive/
+
+# Root package (not needed)
+/package.json
+/package-lock.json

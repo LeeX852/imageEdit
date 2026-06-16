@@ -1,0 +1,139 @@
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const path = require('path');
+const { spawn } = require('child_process');
+
+let mainWindow = null;
+let pythonProcess = null;
+
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const PYTHON_BACKEND_URL = 'http://localhost:8000';
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'Game Asset Processor',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+function findPython() {
+  const candidates = [
+    'C:\\Users\\leex852\\AppData\\Local\\Programs\\Python\\Python310\\python.exe',
+    'C:\\Python310\\python.exe',
+    'C:\\Python311\\python.exe',
+    'C:\\Python312\\python.exe',
+    'python3',
+    'python',
+  ];
+  const { execFileSync } = require('child_process');
+  for (const cmd of candidates) {
+    try {
+      execFileSync(cmd, ['--version'], { stdio: 'ignore' });
+      return cmd;
+    } catch { /* not found, try next */ }
+  }
+  return 'python';
+}
+
+function startPythonBackend() {
+  let pythonCmd;
+  let spawnArgs;
+  let spawnCwd;
+
+  if (isDev) {
+    pythonCmd = findPython();
+    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'];
+    spawnCwd = path.join(__dirname, '../backend');
+  } else {
+    // Production: use PyInstaller-bundled backend.exe
+    pythonCmd = path.join(process.resourcesPath, 'backend', 'backend.exe');
+    spawnArgs = [];
+    spawnCwd = path.join(process.resourcesPath, 'backend');
+  }
+
+  pythonProcess = spawn(pythonCmd, spawnArgs, {
+    cwd: spawnCwd,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  pythonProcess.stdout.on('data', (data) => {
+    console.log(`Python backend: ${data}`);
+  });
+
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`Python backend error: ${data}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    console.log(`Python backend exited with code ${code}`);
+    pythonProcess = null;
+  });
+}
+
+function stopPythonBackend() {
+  if (pythonProcess) {
+    pythonProcess.kill();
+    pythonProcess = null;
+  }
+}
+
+// IPC handlers
+ipcMain.handle('select-files', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'bmp', 'webp', 'tiff', 'gif'] },
+    ],
+  });
+  return result.filePaths;
+});
+
+ipcMain.handle('select-directory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+  });
+  return result.filePaths[0] || null;
+});
+
+ipcMain.handle('get-backend-url', () => PYTHON_BACKEND_URL);
+
+// App lifecycle
+app.whenReady().then(() => {
+  startPythonBackend();
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  stopPythonBackend();
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  stopPythonBackend();
+});
