@@ -35,7 +35,10 @@ app/build-tmp/
 
 # OpenSpec artifacts (keep change plans, ignore build)
 openspec/changes/archive/
+openspec/
 
 # Root package (not needed)
 /package.json
 /package-lock.json
+
+
