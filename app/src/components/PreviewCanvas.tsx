@@ -86,9 +86,6 @@ export function PreviewCanvas() {
 
   if (!selected) return null;
 
-  const showOriginal = viewMode === 'original' || viewMode === 'compare';
-  const showProcessed = viewMode === 'processed' || viewMode === 'compare';
-
   return (
     <div className="flex flex-col h-full">
       {/* View mode toolbar */}

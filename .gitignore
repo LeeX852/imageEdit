@@ -39,3 +39,6 @@ openspec/changes/archive/
 # Root package (not needed)
 /package.json
 /package-lock.json
+
+# Python venv
+app/backend/.venv/

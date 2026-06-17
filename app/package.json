@@ -1,7 +1,7 @@
 {
   "name": "game-asset-processor",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -48,12 +48,21 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "!node_modules/**/*"
     ],
     "extraResources": [
       {
-        "from": "backend/dist/backend.exe",
-        "to": "backend/backend.exe"
+        "from": "backend/app",
+        "to": "backend/app"
+      },
+      {
+        "from": "backend/.venv",
+        "to": "backend/.venv"
+      },
+      {
+        "from": "backend/run_server.py",
+        "to": "backend/run_server.py"
       }
     ],
     "win": {

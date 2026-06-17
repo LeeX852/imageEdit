@@ -8,6 +8,11 @@ let pythonProcess = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const PYTHON_BACKEND_URL = 'http://localhost:8000';
 
+// Check if bundled venv exists — use it regardless of isPackaged if available
+const fs = require('fs');
+const bundledVenvPython = path.join(process.resourcesPath, 'backend', '.venv', 'Scripts', 'python.exe');
+const useBundledBackend = fs.existsSync(bundledVenvPython);
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -22,10 +27,12 @@ function createWindow() {
     },
   });
 
-  if (isDev) {
+  if (isDev && !useBundledBackend) {
+    // Pure dev mode: load from Vite dev server
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
+    // Production or packaged with bundled backend: load local files
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
@@ -58,19 +65,27 @@ function startPythonBackend() {
   let spawnArgs;
   let spawnCwd;
 
-  if (isDev) {
+  if (useBundledBackend) {
+    // Production: use bundled venv Python interpreter
+    pythonCmd = bundledVenvPython;
+    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'];
+    spawnCwd = path.join(process.resourcesPath, 'backend');
+  } else {
+    // Dev mode: use system Python
     pythonCmd = findPython();
     spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'];
     spawnCwd = path.join(__dirname, '../backend');
-  } else {
-    // Production: use PyInstaller-bundled backend.exe
-    pythonCmd = path.join(process.resourcesPath, 'backend', 'backend.exe');
-    spawnArgs = [];
-    spawnCwd = path.join(process.resourcesPath, 'backend');
   }
+
+  console.log('Starting Python backend:', pythonCmd);
+  console.log('Working directory:', spawnCwd);
+  console.log('isDev:', isDev, 'isPackaged:', app.isPackaged);
+  console.log('useBundledBackend:', useBundledBackend);
+  console.log('resourcesPath:', process.resourcesPath);
 
   pythonProcess = spawn(pythonCmd, spawnArgs, {
     cwd: spawnCwd,
+    shell: true,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -80,6 +95,10 @@ function startPythonBackend() {
 
   pythonProcess.stderr.on('data', (data) => {
     console.error(`Python backend error: ${data}`);
+  });
+
+  pythonProcess.on('error', (err) => {
+    console.error('Failed to start Python backend:', err.message);
   });
 
   pythonProcess.on('close', (code) => {
@@ -116,8 +135,10 @@ ipcMain.handle('select-directory', async () => {
 ipcMain.handle('get-backend-url', () => PYTHON_BACKEND_URL);
 
 // App lifecycle
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   startPythonBackend();
+  // Wait for backend to be ready before showing window
+  await waitForBackend(15000);
   createWindow();
 
   app.on('activate', () => {
@@ -126,6 +147,26 @@ app.whenReady().then(() => {
     }
   });
 });
+
+async function waitForBackend(timeoutMs) {
+  const http = require('http');
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await new Promise((resolve, reject) => {
+        http.get(PYTHON_BACKEND_URL + '/health', (res) => {
+          if (res.statusCode === 200) resolve();
+          else reject();
+        }).on('error', reject);
+      });
+      console.log('Backend is ready');
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  console.warn('Backend did not become ready within timeout, continuing anyway');
+}
 
 app.on('window-all-closed', () => {
   stopPythonBackend();

@@ -13,7 +13,6 @@ function App() {
   const checkBackend = useStore((s) => s.checkBackend);
   const loadModels = useStore((s) => s.loadModels);
   const backendConnected = useStore((s) => s.backendConnected);
-  const processSingle = useStore((s) => s.processSingle);
   const exportSingle = useStore((s) => s.exportSingle);
   const selectedId = useStore((s) => s.selectedId);
 
